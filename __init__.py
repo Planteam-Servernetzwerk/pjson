@@ -12,10 +12,9 @@ JSONType = TypeVar("JSONType", bound="JSONObject")
 class JSONObject:
     FQ_HOST: str = ...                               # type: ignore
     TABLE_NAME: str = ...                            # type: ignore
-    SUFFIX_GET: str = "/get"
-    SUFFIX_GETS: str = "/gets"
+    ENDPOINT_GET: str = "/get"
+    ENDPOINT_GETS: str = "/gets"
 
-    KEYS: list[str] = ...                            # type: ignore
     PRIMARY_KEY: str = ...                           # type: ignore
 
     AUTH_METHOD: Optional[Literal["challenge", "http"]] = ...  # type: ignore
@@ -73,61 +72,47 @@ class JSONObject:
     @classmethod
     def gets(cls: Type[JSONType], **kwargs) -> list[JSONType]:
         resp = cls.s().get(
-            cls.urlfor(cls.SUFFIX_GETS),
-            data=dict({"table": cls.TABLE_NAME}, **kwargs)
+            cls.urlfor(cls.ENDPOINT_GETS + "/" + cls.TABLE_NAME),
+            params=kwargs
         )
 
         if resp.status_code != 200:
             raise ConnectionError(f"Host returned {resp.status_code} {resp.reason}.")
 
-        return [cls(*[getattr(obj, k) for k in cls.KEYS]) for obj in resp.json()]
+        return [cls(**obj) for obj in resp.json()]
 
     @classmethod
     def get(cls: Type[JSONType], **kwargs) -> JSONType:
         resp = cls.s().get(
-            cls.urlfor(cls.SUFFIX_GET),
-            data=dict({"table": cls.TABLE_NAME}, **kwargs)
+            cls.urlfor(cls.ENDPOINT_GET + "/" + cls.TABLE_NAME),
+            params=kwargs
         )
 
         if resp.status_code != 200:
             raise ConnectionError(f"Host returned {resp.status_code} {resp.reason}.")
 
-        return cls(*[getattr(resp, k) for k in cls.KEYS])
-
-    def argsdict(self) -> dict:
-        return {k: getattr(self, k) for k in self.KEYS}
-
-    @classmethod
-    def from_sqlobject(cls: Type[JSONType], obj: psql.SQLObject, custom_keys: Optional[List] = None) -> JSONType:
-        keys = cls.KEYS if not custom_keys else custom_keys
-        return cls(**{k: getattr(obj, k) for k in keys})
-
-    @classmethod
-    def gets_from_sql(cls: Type[JSONType], c: Type[psql.SQLType], custom_keys: Optional[List] = None, **kwargs) -> list[JSONType]:
-        resp = c.gets(**kwargs)
-        return [cls.from_sqlobject(obj, custom_keys) for obj in resp]
-
-    @classmethod
-    def get_from_sql(cls: Type[JSONType], c: Type[psql.SQLType], custom_keys: Optional[List] = None, primary_value = None, **kwargs) -> JSONType:
-        obj = c.get(primary_value, **kwargs)
-        return cls.from_sqlobject(obj, custom_keys)
-
-    @classmethod
-    def parse_json(cls: Type[JSONType], parsed_psql: Union[JSONType, List[JSONType]]) -> str:
-        if isinstance(parsed_psql, list):
-            result = [obj.argsdict() for obj in parsed_psql]
-        else:
-            result = parsed_psql.argsdict()
-        return json.dumps(result)
+        return cls(**resp.json())
 
 
 class SQLInterface:
-    def __init__(self, c: Type[psql.SQLType]) -> None:
-        self.c = c
+    def __init__(self, psql_cls: "psql.SQLObject", exclude_keys: Optional[list[str]] = None,
+                 include_keys: Optional[list[str]] = None) -> None:
+        """
+        :param exclude_keys: Excludes certain SQL keys from serving
+        :param include_keys: Includes certain custom properties for serving
+        """
+        self.psql_cls = psql_cls
 
-    def gets(self, custom_keys: Optional[List] = None, **kwargs) -> str:
-        return JSONObject.parse_json(JSONObject.gets_from_sql(self.c, custom_keys, **kwargs))
+        exclude_keys = exclude_keys or []
+        include_keys = include_keys or []
 
-    def get(self, custom_keys: Optional[List] = None, primary_value = None, **kwargs) -> str:
-        return JSONObject.parse_json(JSONObject.get_from_sql(self.c, custom_keys, primary_value, **kwargs))
+        self.keys = [key for key in (self.psql_cls.SQL_KEYS + include_keys) if key not in exclude_keys]
+
+    def gets(self, **kwargs) -> list[dict]:
+        objs = self.psql_cls.gets(**kwargs)
+        return [{key: getattr(obj, key) for key in self.keys} for obj in objs]
+
+    def get(self, primary_value = None, **kwargs) -> dict:
+        obj = self.psql_cls.get(primary_value, **kwargs)
+        return {key: getattr(obj, key) for key in self.keys}
 
