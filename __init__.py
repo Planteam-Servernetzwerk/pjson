@@ -3,6 +3,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from typing import Literal, Optional, Type, TypeVar, Union, overload, Dict, Any, List
 import requests
 import psql
+from requests.exceptions import SSLError
 
 
 JSONType = TypeVar("JSONType", bound="JSONObject")
@@ -27,16 +28,28 @@ class JSONObject:
     SSH_CHALLENGE_START_ENDPOINT: str = ...          # type: ignore
     SSH_CHALLENGE_COMPLETE_ENDPOINT: str = ...       # type: ignore
 
+    tls = False
     session = None
 
     @classmethod
+    def get_host(cls) -> str:
+        return ("https://" if cls.tls else "http://") + cls.FQ_HOST
+
+    @classmethod
     def urlfor(cls, endpoint: str) -> str:
-        return cls.FQ_HOST + ('' if endpoint.startswith('/') else '/') + endpoint
+        return cls.get_host() + ('' if endpoint.startswith('/') else '/') + endpoint
 
     @classmethod
     def s(cls) -> requests.Session:
         if cls.session is None:
             cls.session = requests.Session()
+            # probe for tls
+            cls.tls = True
+            try:
+                cls.session.get(cls.urlfor("/"))
+            except SSLError:
+                cls.tls = False
+
             if cls.AUTH_METHOD == "challenge":
                 raise NotImplementedError()
             elif cls.AUTH_METHOD == "http":
