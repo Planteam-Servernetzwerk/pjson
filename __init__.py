@@ -18,7 +18,7 @@ class JSONObject:
     KEYS: list[str] = ...                            # type: ignore
     PRIMARY_KEY: str = ...                           # type: ignore
 
-    AUTH_METHOD: Literal["challenge", "http"] = ...  # type: ignore
+    AUTH_METHOD: Optional[Literal["challenge", "http"]] = ...  # type: ignore
 
     HTTP_USERNAME: str = ...                         # type: ignore
     HTTP_PASSWORD: str = ...                         # type: ignore
@@ -74,7 +74,7 @@ class JSONObject:
     def gets(cls: Type[JSONType], **kwargs) -> list[JSONType]:
         resp = cls.s().get(
             cls.urlfor(cls.SUFFIX_GETS),
-            data=kwargs
+            data=dict({"table": cls.TABLE_NAME}, **kwargs)
         )
 
         if resp.status_code != 200:
@@ -86,7 +86,7 @@ class JSONObject:
     def get(cls: Type[JSONType], **kwargs) -> JSONType:
         resp = cls.s().get(
             cls.urlfor(cls.SUFFIX_GET),
-            data=kwargs
+            data=dict({"table": cls.TABLE_NAME}, **kwargs)
         )
 
         if resp.status_code != 200:
