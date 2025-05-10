@@ -70,6 +70,10 @@ class JSONObject:
         return cls.s()
 
     @classmethod
+    def from_json(cls: Type[JSONType], o: dict) -> JSONType:
+        return cls(**o)
+
+    @classmethod
     def gets(cls: Type[JSONType], **kwargs) -> list[JSONType]:
         resp = cls.s().get(
             cls.urlfor(cls.ENDPOINT_GETS + "/" + cls.TABLE_NAME),
@@ -79,7 +83,7 @@ class JSONObject:
         if resp.status_code != 200:
             raise ConnectionError(f"Host returned {resp.status_code} {resp.reason}.")
 
-        return [cls(**obj) for obj in resp.json()]
+        return [cls.from_json(obj) for obj in resp.json()]
 
     @classmethod
     def get(cls: Type[JSONType], **kwargs) -> JSONType:
@@ -91,12 +95,12 @@ class JSONObject:
         if resp.status_code != 200:
             raise ConnectionError(f"Host returned {resp.status_code} {resp.reason}.")
 
-        return cls(**resp.json())
+        return cls.from_json(resp.json())
 
 
 class SQLInterface:
     def __init__(self, psql_cls: "psql.SQLObject", exclude_keys: Optional[list[str]] = None,
-                 include_keys: Optional[list[str]] = None) -> None:
+                 include_keys: Optional[list[str]] = None, aliases: Optional[dict[str, str]] = None) -> None:
         """
         :param exclude_keys: Excludes certain SQL keys from serving
         :param include_keys: Includes certain custom properties for serving
@@ -105,14 +109,22 @@ class SQLInterface:
 
         exclude_keys = exclude_keys or []
         include_keys = include_keys or []
+        self.aliases = aliases or {}
 
         self.keys = [key for key in (self.psql_cls.SQL_KEYS + include_keys) if key not in exclude_keys]
 
+    def get_value(self, obj, key: str):
+        alias = self.aliases.get(key)
+        if alias:
+            return getattr(obj, alias)
+        else:
+            return getattr(obj, key)
+
     def gets(self, **kwargs) -> list[dict]:
         objs = self.psql_cls.gets(**kwargs)
-        return [{key: getattr(obj, key) for key in self.keys} for obj in objs]
+        return [{key: self.get_value(obj, key) for key in self.keys} for obj in objs]
 
     def get(self, primary_value = None, **kwargs) -> dict:
         obj = self.psql_cls.get(primary_value, **kwargs)
-        return {key: getattr(obj, key) for key in self.keys}
+        return {key: self.get_value(obj, key) for key in self.keys}
 
