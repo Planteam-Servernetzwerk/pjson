@@ -99,7 +99,7 @@ class JSONObject:
 
 
 class SQLInterface:
-    def __init__(self, psql_cls: "psql.SQLObject", exclude_keys: Optional[list[str]] = None,
+    def __init__(self, psql_cls: Type[psql.SQLType], exclude_keys: Optional[list[str]] = None,
                  include_keys: Optional[list[str]] = None, aliases: Optional[dict[str, str]] = None) -> None:
         """
         :param exclude_keys: Excludes certain SQL keys from serving
@@ -122,9 +122,12 @@ class SQLInterface:
 
     def gets(self, **kwargs) -> list[dict]:
         objs = self.psql_cls.gets(**kwargs)
-        return [{key: self.get_value(obj, key) for key in self.keys} for obj in objs]
+        return [self.parse_json(obj) for obj in objs]
 
     def get(self, primary_value = None, **kwargs) -> dict:
         obj = self.psql_cls.get(primary_value, **kwargs)
+        return self.parse_json(obj)
+
+    def parse_json(self, obj: "psql.SQLObject") -> dict:
         return {key: self.get_value(obj, key) for key in self.keys}
 
