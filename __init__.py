@@ -1,6 +1,6 @@
 import json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from typing import Literal, Optional, Type, TypeVar, Union, overload, Dict, Any, List
+from typing import Literal, Optional, Type, TypeVar, Union, overload, Dict, Any, List, Generic, Callable
 import requests
 import psql
 from requests.exceptions import SSLError
@@ -69,6 +69,9 @@ class JSONObject:
         cls.session = None
         return cls.s()
 
+    def primary_value(self):
+        return getattr(self, self.PRIMARY_KEY)
+
     @classmethod
     def from_json(cls: Type[JSONType], o: dict) -> JSONType:
         return cls(**o)
@@ -131,3 +134,17 @@ class SQLInterface:
     def parse_json(self, obj: "psql.SQLObject") -> dict:
         return {key: self.get_value(obj, key) for key in self.keys}
 
+
+class Lookup(Generic[JSONType]):
+    """@brief Creates a dictionary-like lookup of a psql table with a defined key"""
+    def __init__(self, table: Type[JSONType], key: Union[str, Callable] = lambda o: o.primary_value()) -> None:
+        objs = table.gets()
+        __key = key if callable(key) else lambda o: getattr(o, key)
+        self.table = table
+        self.lookup = {__key(obj): obj for obj in objs}
+
+    def __getitem__(self, k) -> JSONType:
+        return self.lookup[k]
+
+    def __repr__(self) -> str:
+        return f"<pjson.Lookup {self.lookup}>"
