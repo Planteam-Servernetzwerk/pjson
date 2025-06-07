@@ -19,7 +19,7 @@ def handle_status_code(response: requests.Response):
         case 404:
             raise KeyError("404 NOT FOUND")
         case _:
-            raise ConnectionError(f"")
+            raise ConnectionError(f"{response.status_code} {response.reason}")
 
 
 class JSONObject:
