@@ -9,6 +9,19 @@ from requests.exceptions import SSLError
 JSONType = TypeVar("JSONType", bound="JSONObject")
 
 
+def handle_status_code(response: requests.Response):
+    if response.status_code == 200:
+        pass
+
+    match response.status_code:
+        case 400:
+            raise AttributeError("400 BAD REQUEST")
+        case 404:
+            raise KeyError("404 NOT FOUND")
+        case _:
+            raise ConnectionError(f"")
+
+
 class JSONObject:
     FQ_HOST: str = ...                               # type: ignore
     TABLE_NAME: str = ...                            # type: ignore
@@ -83,8 +96,7 @@ class JSONObject:
             params=kwargs
         )
 
-        if resp.status_code != 200:
-            raise ConnectionError(f"Host returned {resp.status_code} {resp.reason}.")
+        handle_status_code(resp)
 
         return [cls.from_json(obj) for obj in resp.json()]
 
@@ -95,8 +107,7 @@ class JSONObject:
             params=kwargs
         )
 
-        if resp.status_code != 200:
-            raise ConnectionError(f"Host returned {resp.status_code} {resp.reason}.")
+        handle_status_code(resp)
 
         return cls.from_json(resp.json())
 
