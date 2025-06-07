@@ -11,7 +11,7 @@ JSONType = TypeVar("JSONType", bound="JSONObject")
 
 def handle_status_code(response: requests.Response):
     if response.status_code == 200:
-        pass
+        return
 
     match response.status_code:
         case 400:
