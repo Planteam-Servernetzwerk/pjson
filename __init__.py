@@ -30,11 +30,13 @@ class JSONObject:
 
     PRIMARY_KEY: str = ...                           # type: ignore
 
-    AUTH_METHOD: Optional[Literal["challenge", "http"]] = ...  # type: ignore
+    AUTH_METHOD: Optional[Literal["challenge", "http", "validator"]] = ...  # type: ignore
 
     HTTP_USERNAME: str = ...                         # type: ignore
     HTTP_PASSWORD: str = ...                         # type: ignore
     HTTP_LOGIN_ENDPOINT: str = ...                   # type: ignore
+
+    VALIDATOR: str = ...                             # type: ignore
 
     SSH_PRIVATE_KEY: Ed25519PrivateKey = ...         # type: ignore
     SSH_CHALLENGE_START_ENDPOINT: str = ...          # type: ignore
@@ -75,6 +77,10 @@ class JSONObject:
                     raise ConnectionError("Invalid credentials.")
                 elif auth_response.status_code != 200:
                     raise ConnectionError(f"Authentication failed. Host returned {auth_response.status_code} {auth_response.reason}.")
+            elif cls.AUTH_METHOD == "validator":
+                assert cls.VALIDATOR
+                cls.session = requests.Session()
+                cls.session.cookies.set("validator", cls.VALIDATOR)
         return cls.session
 
     @classmethod
