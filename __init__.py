@@ -1,8 +1,6 @@
-import json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from typing import Literal, Optional, Type, TypeVar, Union, overload, Dict, Any, List, Generic, Callable
 import requests
-import psql
 from requests.exceptions import SSLError
 
 
@@ -119,7 +117,7 @@ class JSONObject:
 
 
 class SQLInterface:
-    def __init__(self, psql_cls: Type[psql.SQLType], exclude_keys: Optional[list[str]] = None,
+    def __init__(self, psql_cls, exclude_keys: Optional[list[str]] = None,
                  include_keys: Optional[list[str]] = None, aliases: Optional[dict[str, str]] = None) -> None:
         """
         :param exclude_keys: Excludes certain SQL keys from serving
@@ -148,8 +146,8 @@ class SQLInterface:
         obj = self.psql_cls.get(primary_value, **kwargs)
         return self.parse_json(obj)
 
-    def parse_json(self, obj: "psql.SQLObject") -> dict:
-        return {key: self.get_value(obj, key) for key in self.keys}
+    def parse_json(self, psql_obj) -> dict:
+        return {key: self.get_value(psql_obj, key) for key in self.keys}
 
 
 class Lookup(Generic[JSONType]):
