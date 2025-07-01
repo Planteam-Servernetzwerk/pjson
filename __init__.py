@@ -7,6 +7,9 @@ from requests.exceptions import SSLError
 JSONType = TypeVar("JSONType", bound="JSONObject")
 
 
+__version__ = "beta0.2"
+
+
 def handle_status_code(response: requests.Response):
     if response.status_code == 200:
         return
@@ -45,7 +48,10 @@ class JSONObject:
 
     @classmethod
     def get_host(cls) -> str:
-        return ("https://" if cls.tls else "http://") + cls.FQ_HOST
+        host = cls.FQ_HOST
+        if len(host.split("://", 1)) > 1:
+            host = host.split("://", 1)[-1]
+        return ("https://" if cls.tls else "http://") + host
 
     @classmethod
     def urlfor(cls, endpoint: str) -> str:
